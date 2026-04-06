@@ -1012,10 +1012,10 @@ with tab3:
             st.dataframe(
                 reward_df.style.format({
                     '四大超商消費': '${:,.0f}',
-                    '四大超商回饋': '${:,.1f}',
+                    '四大超商回饋': '${:,.0f}',
                     '一般消費': '${:,.0f}',
-                    '一般回饋': '${:,.1f}',
-                    '當月回饋總額': '${:,.1f}',
+                    '一般回饋': '${:,.0f}',
+                    '當月回饋總額': '${:,.0f}',
                 }),
                 use_container_width=True,
                 hide_index=True,
@@ -1032,7 +1032,7 @@ with tab3:
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("💰 年度回饋總額", f"${total_reward:,.1f}")
+                st.metric("💰 年度回饋總額", f"${total_reward:,.0f}")
             with col2:
                 st.metric("📊 實際回饋率", f"{effective_rate:.2f}%")
             with col3:

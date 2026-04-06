@@ -192,10 +192,10 @@ def calculate_rewards(monthly_data: dict,
 
     return {
         '四大超商_消費': conv_amount,
-        '四大超商_回饋': round(conv_reward, 2),
+        '四大超商_回饋': round(conv_reward),
         '一般_消費': general_amount,
-        '一般_回饋': round(general_reward, 2),
-        '回饋總額': round(conv_reward + general_reward, 2),
+        '一般_回饋': round(general_reward),
+        '回饋總額': round(conv_reward + general_reward),
     }
 
 
