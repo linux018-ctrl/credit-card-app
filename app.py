@@ -546,55 +546,88 @@ with st.sidebar:
                 })
                 st.success("✅ Email 設定已儲存")
 
-    # ── 回饋設定 ──
+    # ── 回饋設定（按年度） ──
     st.divider()
     st.subheader("🎁 回饋費率設定")
+    st.caption(f"📅 目前設定年度：**{selected_year}**")
 
-    # 讀取儲存的設定
-    _reward_defaults = {'conv_rate': 10.0, 'general_rate': 1.0, 'conv_cap': 200.0}
+    # 讀取所有年度的設定
+    _all_reward_cfg = {}
     if REWARD_CONFIG_PATH.exists():
         try:
             with open(REWARD_CONFIG_PATH, 'r', encoding='utf-8') as f:
-                _reward_saved = json.load(f)
-                _reward_defaults.update(_reward_saved)
+                _all_reward_cfg = json.load(f)
         except Exception:
             pass
+
+    # 如果舊格式（非年度 dict），轉換為年度格式
+    if _all_reward_cfg and 'conv_rate' in _all_reward_cfg:
+        _all_reward_cfg = {str(selected_year): _all_reward_cfg}
+
+    # 取得當前年度的預設值
+    _year_key = str(int(selected_year))
+    _year_cfg = _all_reward_cfg.get(_year_key, {})
+    _defaults = {
+        'conv_rate': _year_cfg.get('conv_rate', 10.0),
+        'general_rate': _year_cfg.get('general_rate', 1.0),
+        'conv_cap': _year_cfg.get('conv_cap', 200.0),
+    }
 
     conv_rate_pct = st.number_input(
         "四大超商回饋率 (%)",
         min_value=0.0, max_value=100.0,
-        value=_reward_defaults['conv_rate'],
+        value=_defaults['conv_rate'],
         step=0.5,
-        help="例如 10 = 10%"
+        help="例如 10 = 10%",
+        key=f"conv_rate_{_year_key}",
     )
     conv_cap = st.number_input(
         "四大超商每月回饋上限 ($)",
         min_value=0.0,
-        value=_reward_defaults['conv_cap'],
+        value=_defaults['conv_cap'],
         step=50.0,
-        help="每月回饋金額上限，例如 200"
+        help="每月回饋金額上限，例如 200",
+        key=f"conv_cap_{_year_key}",
     )
     general_rate_pct = st.number_input(
         "一般消費回饋率 (%)",
         min_value=0.0, max_value=100.0,
-        value=_reward_defaults['general_rate'],
+        value=_defaults['general_rate'],
         step=0.5,
-        help="例如 1 = 1%"
+        help="例如 1 = 1%",
+        key=f"general_rate_{_year_key}",
     )
 
     if st.button("💾 儲存回饋設定", use_container_width=True):
-        _rc = {'conv_rate': conv_rate_pct, 'general_rate': general_rate_pct, 'conv_cap': conv_cap}
+        _all_reward_cfg[_year_key] = {
+            'conv_rate': conv_rate_pct,
+            'general_rate': general_rate_pct,
+            'conv_cap': conv_cap,
+        }
         if not IS_CLOUD:
             with open(REWARD_CONFIG_PATH, 'w', encoding='utf-8') as f:
-                json.dump(_rc, f, ensure_ascii=False, indent=2)
-        st.success("✅ 回饋設定已儲存")
+                json.dump(_all_reward_cfg, f, ensure_ascii=False, indent=2)
+        st.success(f"✅ {selected_year} 年回饋設定已儲存")
 
-    # 將設定存入 session_state 供全局使用
+    # 顯示所有年度設定一覽
+    if len(_all_reward_cfg) > 1:
+        with st.expander("📋 各年度費率一覽", expanded=False):
+            for yr in sorted(_all_reward_cfg.keys(), reverse=True):
+                cfg = _all_reward_cfg[yr]
+                st.markdown(
+                    f"**{yr}年** — 超商 {cfg.get('conv_rate', 10)}% "
+                    f"(上限 ${cfg.get('conv_cap', 200):,.0f}) / "
+                    f"一般 {cfg.get('general_rate', 1)}%"
+                )
+
+    # 將當前年度設定存入 session_state 供全局使用
     st.session_state['reward_config'] = {
         'conv_rate': conv_rate_pct / 100.0,
         'general_rate': general_rate_pct / 100.0,
         'conv_cap': conv_cap,
     }
+    # 也存完整的年度對照表
+    st.session_state['reward_config_all'] = _all_reward_cfg
 
     # ── 資料管理 ──
     st.divider()
@@ -919,12 +952,14 @@ with tab3:
         _cap = _rc.get('conv_cap', 200)
         with st.expander("📖 回饋規則", expanded=False):
             st.markdown(f"""
+            **{selected_year} 年度費率：**
+
             | 消費類別 | 回饋率 | 說明 |
             |---------|--------|------|
             | 四大超商 | **{_conv_pct:.1f}%** | 每月上限 ${_cap:,.0f} |
             | 一般消費 | **{_gen_pct:.1f}%** | 無上限 |
             """)
-            st.caption("💡 可在左側欄「回饋費率設定」調整")
+            st.caption("💡 切換左側「年份」可查看/設定不同年度的費率")
 
         # 取得當前回饋費率設定
         _rc = st.session_state.get('reward_config', {})
