@@ -551,20 +551,23 @@ with st.sidebar:
     st.subheader("🎁 回饋費率設定")
     st.caption(f"📅 目前設定年度：**{selected_year}**")
 
-    # 讀取所有年度的設定
-    _all_reward_cfg = {}
-    if REWARD_CONFIG_PATH.exists():
-        try:
-            with open(REWARD_CONFIG_PATH, 'r', encoding='utf-8') as f:
-                _all_reward_cfg = json.load(f)
-        except Exception:
-            pass
+    # 讀取所有年度的設定（優先從 session_state，再從 JSON 檔）
+    if 'reward_config_all' not in st.session_state:
+        _all_reward_cfg = {}
+        if REWARD_CONFIG_PATH.exists():
+            try:
+                with open(REWARD_CONFIG_PATH, 'r', encoding='utf-8') as f:
+                    _all_reward_cfg = json.load(f)
+            except Exception:
+                pass
+        # 如果舊格式（非年度 dict），轉換為年度格式
+        if _all_reward_cfg and 'conv_rate' in _all_reward_cfg:
+            _all_reward_cfg = {str(selected_year): _all_reward_cfg}
+        st.session_state['reward_config_all'] = _all_reward_cfg
 
-    # 如果舊格式（非年度 dict），轉換為年度格式
-    if _all_reward_cfg and 'conv_rate' in _all_reward_cfg:
-        _all_reward_cfg = {str(selected_year): _all_reward_cfg}
+    _all_reward_cfg = st.session_state['reward_config_all']
 
-    # 取得當前年度的預設值
+    # 取得當前年度的設定值
     _year_key = str(int(selected_year))
     _year_cfg = _all_reward_cfg.get(_year_key, {})
     _defaults = {
@@ -598,16 +601,18 @@ with st.sidebar:
         key=f"general_rate_{_year_key}",
     )
 
-    if st.button("💾 儲存回饋設定", use_container_width=True):
-        _all_reward_cfg[_year_key] = {
-            'conv_rate': conv_rate_pct,
-            'general_rate': general_rate_pct,
-            'conv_cap': conv_cap,
-        }
+    # 自動儲存：每次數值變動都即時寫入（不需手動按儲存）
+    _current = {
+        'conv_rate': conv_rate_pct,
+        'general_rate': general_rate_pct,
+        'conv_cap': conv_cap,
+    }
+    if _all_reward_cfg.get(_year_key) != _current:
+        _all_reward_cfg[_year_key] = _current
+        st.session_state['reward_config_all'] = _all_reward_cfg
         if not IS_CLOUD:
             with open(REWARD_CONFIG_PATH, 'w', encoding='utf-8') as f:
                 json.dump(_all_reward_cfg, f, ensure_ascii=False, indent=2)
-        st.success(f"✅ {selected_year} 年回饋設定已儲存")
 
     # 顯示所有年度設定一覽
     if len(_all_reward_cfg) > 1:
@@ -626,8 +631,6 @@ with st.sidebar:
         'general_rate': general_rate_pct / 100.0,
         'conv_cap': conv_cap,
     }
-    # 也存完整的年度對照表
-    st.session_state['reward_config_all'] = _all_reward_cfg
 
     # ── 資料管理 ──
     st.divider()
