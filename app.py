@@ -73,7 +73,7 @@ def _get_cloud_credentials() -> bytes | None:
 def _get_cloud_folder_id() -> str:
     """從 st.secrets 取得 Drive folder ID"""
     try:
-        return st.secrets.get("gdrive_folder_id", "")
+        return st.secrets["gdrive_folder_id"]
     except Exception:
         return ""
 
@@ -81,24 +81,29 @@ def _get_cloud_folder_id() -> str:
 def _get_cloud_pdf_password() -> str:
     """從 st.secrets 取得 PDF 密碼"""
     try:
-        return st.secrets.get("pdf_password", "")
+        return st.secrets["pdf_password"]
     except Exception:
         return ""
 
 
+def _secret(key: str, default: str = "") -> str:
+    """安全讀取 st.secrets 的值"""
+    try:
+        return st.secrets[key]
+    except Exception:
+        return default
+
+
 def _get_cloud_email_config() -> dict:
     """從 st.secrets 取得 Email 設定"""
-    try:
-        return {
-            'sender_email': st.secrets.get("email_sender", ""),
-            'app_password': st.secrets.get("email_app_password", ""),
-            'recipients': {
-                'Alan': st.secrets.get("email_recipient_alan", ""),
-                'Lydia': st.secrets.get("email_recipient_lydia", ""),
-            }
+    return {
+        'sender_email': _secret("email_sender"),
+        'app_password': _secret("email_app_password"),
+        'recipients': {
+            'Alan': _secret("email_recipient_alan"),
+            'Lydia': _secret("email_recipient_lydia"),
         }
-    except Exception:
-        return {}
+    }
 
 
 IS_CLOUD = _is_cloud()
