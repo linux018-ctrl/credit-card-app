@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets & credentials (NEVER push to GitHub)
+.streamlit/secrets.toml
+credentials.json
+email_config.json
+drive_config.json
+
+# Data files (user's private financial data)
+data/records.json
+data/tmp_upload.xlsx
+
+# Debug & test files
+debug_pdf.py
+debug_output.txt
+test_drive.py
+# PDF bank statements (private financial data)
+*.pdf
