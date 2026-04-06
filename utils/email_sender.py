@@ -153,14 +153,41 @@ def _build_html_report(
 
     # 月度摘要表
     summary_rows = ""
+    summary_header = ""
     if not summary_df.empty:
-        for _, row in summary_df.iterrows():
-            m = int(row['結算月份'])
-            alan_val = row.get('Alan', 0)
-            lydia_val = row.get('Lydia', 0)
-            total_val = row.get('總金額', 0)
-            highlight = ' style="background:#fff3cd;"' if month > 0 and m == month else ''
-            summary_rows += f"""
+        # 根據 owner_name 決定顯示哪些欄位
+        if owner_name in ('Alan', 'Lydia'):
+            # 單人模式：只顯示該 owner 的金額
+            summary_header = f"""
+                <tr style="background:#f8f9fa;">
+                    <th style="padding:6px 10px;text-align:center;">月份</th>
+                    <th style="padding:6px 10px;text-align:right;">{owner_name}</th>
+                </tr>"""
+            for _, row in summary_df.iterrows():
+                m = int(row['結算月份'])
+                owner_val = row.get(owner_name, 0)
+                highlight = ' style="background:#fff3cd;"' if month > 0 and m == month else ''
+                summary_rows += f"""
+            <tr{highlight}>
+                <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">{m}月</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;">${owner_val:,.0f}</td>
+            </tr>"""
+        else:
+            # 全部模式：顯示 Alan + Lydia + 總金額
+            summary_header = """
+                <tr style="background:#f8f9fa;">
+                    <th style="padding:6px 10px;text-align:center;">月份</th>
+                    <th style="padding:6px 10px;text-align:right;">Alan</th>
+                    <th style="padding:6px 10px;text-align:right;">Lydia</th>
+                    <th style="padding:6px 10px;text-align:right;">總金額</th>
+                </tr>"""
+            for _, row in summary_df.iterrows():
+                m = int(row['結算月份'])
+                alan_val = row.get('Alan', 0)
+                lydia_val = row.get('Lydia', 0)
+                total_val = row.get('總金額', 0)
+                highlight = ' style="background:#fff3cd;"' if month > 0 and m == month else ''
+                summary_rows += f"""
             <tr{highlight}>
                 <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">{m}月</td>
                 <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;">${alan_val:,.0f}</td>
@@ -266,12 +293,7 @@ def _build_html_report(
         <div style="padding:0 20px 20px;">
             <h2 style="font-size:16px;color:#333;border-bottom:2px solid #667eea;padding-bottom:8px;">📅 月度摘要</h2>
             <table style="width:100%;border-collapse:collapse;">
-                <tr style="background:#f8f9fa;">
-                    <th style="padding:6px 10px;text-align:center;">月份</th>
-                    <th style="padding:6px 10px;text-align:right;">Alan</th>
-                    <th style="padding:6px 10px;text-align:right;">Lydia</th>
-                    <th style="padding:6px 10px;text-align:right;">總金額</th>
-                </tr>
+                {summary_header}
                 {summary_rows}
             </table>
         </div>
