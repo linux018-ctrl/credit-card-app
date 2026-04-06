@@ -245,12 +245,12 @@ def _build_html_report(
             <h2 style="font-size:16px;color:#333;border-bottom:2px solid #667eea;padding-bottom:8px;">🎁 回饋金額</h2>
             <table style="width:100%;border-collapse:collapse;">
                 <tr>
-                    <td style="padding:8px 12px;border-bottom:1px solid #eee;">四大超商 (10%, 上限$200)</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #eee;">四大超商 ({_conv_rate*100:.0f}%, 上限${_conv_cap:,.0f})</td>
                     <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">消費 ${convenience_total:,.0f}</td>
                     <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;color:#e65100;font-weight:bold;">回饋 ${convenience_reward:,.0f}</td>
                 </tr>
                 <tr>
-                    <td style="padding:8px 12px;border-bottom:1px solid #eee;">一般消費 (1%)</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #eee;">一般消費 ({_general_rate*100:.0f}%)</td>
                     <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">消費 ${general_total:,.0f}</td>
                     <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;color:#e65100;font-weight:bold;">回饋 ${general_reward:,.0f}</td>
                 </tr>
