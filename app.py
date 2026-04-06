@@ -498,12 +498,15 @@ with st.sidebar:
     st.subheader("📧 Email 設定")
     email_cfg = load_email_config()
 
-    if IS_CLOUD and email_cfg.get('sender_email'):
+    # 判斷是否有雲端 Email 設定（直接檢查 secrets）
+    _cloud_email = _secret("email_sender") if IS_CLOUD else ""
+
+    if _cloud_email:
         st.info("☁️ 使用 Streamlit Cloud Secrets 的 Email 設定")
-        email_sender = email_cfg['sender_email']
-        email_app_pwd = email_cfg.get('app_password', '')
-        email_alan = email_cfg.get('recipients', {}).get('Alan', '')
-        email_lydia = email_cfg.get('recipients', {}).get('Lydia', '')
+        email_sender = _cloud_email
+        email_app_pwd = _secret("email_app_password")
+        email_alan = _secret("email_recipient_alan")
+        email_lydia = _secret("email_recipient_lydia")
         # 把密碼存入 session_state 供寄信功能使用
         st.session_state['email_app_pwd'] = email_app_pwd
         with st.expander("目前設定", expanded=False):
@@ -511,6 +514,8 @@ with st.sidebar:
             st.write(f"Alan: {email_alan}")
             st.write(f"Lydia: {email_lydia}")
     else:
+        if IS_CLOUD:
+            st.caption("⚠️ Secrets 中未找到 email_sender，請確認已設定")
         with st.expander("設定寄件資訊", expanded=False):
             email_sender = st.text_input(
                 "寄件者 Gmail",
@@ -660,11 +665,15 @@ with tab1:
         email_cfg_send = load_email_config()
         sender = email_cfg_send.get('sender_email', '')
         recipients = email_cfg_send.get('recipients', {})
+        # 密碼：優先從 cloud config 取，其次從 session_state
+        _email_pwd = (
+            email_cfg_send.get('app_password', '')
+            or st.session_state.get('email_app_pwd', '')
+        )
 
         if not sender:
             st.warning("請先在左側欄設定寄件者 Gmail 和應用程式密碼")
         else:
-            _email_pwd = st.session_state.get('email_app_pwd', '')
             _cat_summary = get_category_summary(all_year_df, selected_year)
 
             send_col1, send_col2, send_col3 = st.columns(3)
