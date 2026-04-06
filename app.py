@@ -927,19 +927,25 @@ with tab3:
             st.caption("💡 可在左側欄「回饋費率設定」調整")
 
         # 取得當前回饋費率設定
+        _rc = st.session_state.get('reward_config', {})
         _reward_rates = {
-            '四大超商': _rc.get('conv_rate', 0.10),
-            '一般': _rc.get('general_rate', 0.01),
+            '四大超商': float(_rc.get('conv_rate', 0.10)),
+            '一般': float(_rc.get('general_rate', 0.01)),
         }
-        _reward_cap = _rc.get('conv_cap', 200)
+        _reward_cap = float(_rc.get('conv_cap', 200))
 
         # 計算每月回饋
         rewards_by_month = {}
         for month in sorted(all_year_df['結算月份'].dropna().unique()):
             month_data = all_year_df[all_year_df['結算月份'] == month]
-            cat_totals = month_data.groupby('消費類別')['清算消費金額'].sum().to_dict()
+            cat_totals = {
+                k: float(v)
+                for k, v in month_data.groupby('消費類別')['清算消費金額'].sum().to_dict().items()
+            }
             rewards_by_month[int(month)] = calculate_rewards(
-                cat_totals, reward_rates=_reward_rates, convenience_cap=_reward_cap
+                cat_totals,
+                reward_rates=_reward_rates,
+                convenience_cap=_reward_cap,
             )
 
         # 回饋摘要表格（對應 Excel Row 7-11）

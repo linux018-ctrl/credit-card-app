@@ -179,16 +179,16 @@ def calculate_rewards(monthly_data: dict,
         dict with reward amounts per category and total
     """
     rates = reward_rates or REWARD_RATES
-    cap = convenience_cap if convenience_cap is not None else CONVENIENCE_REWARD_CAP
+    cap = float(convenience_cap) if convenience_cap is not None else float(CONVENIENCE_REWARD_CAP)
 
-    conv_amount = monthly_data.get('四大超商', 0)
-    general_amount = monthly_data.get('一般', 0)
+    conv_amount = float(monthly_data.get('四大超商', 0))
+    general_amount = float(monthly_data.get('一般', 0))
 
     conv_reward = min(
-        conv_amount * rates.get('四大超商', 0.10),
+        conv_amount * float(rates.get('四大超商', 0.10)),
         cap
     )
-    general_reward = general_amount * rates.get('一般', 0.01)
+    general_reward = general_amount * float(rates.get('一般', 0.01))
 
     return {
         '四大超商_消費': conv_amount,
