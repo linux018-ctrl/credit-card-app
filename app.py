@@ -18,7 +18,6 @@ from pathlib import Path
 
 from utils.classifier import (
     classify_transaction, calculate_rewards,
-    REWARD_RATES, CONVENIENCE_REWARD_CAP
 )
 from utils.data_manager import (
     load_records, save_records, merge_records,
@@ -45,6 +44,7 @@ st.set_page_config(
 APP_DIR = Path(__file__).parent
 DRIVE_CONFIG_PATH = APP_DIR / 'drive_config.json'
 EMAIL_CONFIG_PATH = APP_DIR / 'email_config.json'
+REWARD_CONFIG_PATH = APP_DIR / 'reward_config.json'
 BILLING_DAY = 27
 
 # ─────────────────────────────────────────────
@@ -546,6 +546,56 @@ with st.sidebar:
                 })
                 st.success("✅ Email 設定已儲存")
 
+    # ── 回饋設定 ──
+    st.divider()
+    st.subheader("🎁 回饋費率設定")
+
+    # 讀取儲存的設定
+    _reward_defaults = {'conv_rate': 10.0, 'general_rate': 1.0, 'conv_cap': 200.0}
+    if REWARD_CONFIG_PATH.exists():
+        try:
+            with open(REWARD_CONFIG_PATH, 'r', encoding='utf-8') as f:
+                _reward_saved = json.load(f)
+                _reward_defaults.update(_reward_saved)
+        except Exception:
+            pass
+
+    conv_rate_pct = st.number_input(
+        "四大超商回饋率 (%)",
+        min_value=0.0, max_value=100.0,
+        value=_reward_defaults['conv_rate'],
+        step=0.5,
+        help="例如 10 = 10%"
+    )
+    conv_cap = st.number_input(
+        "四大超商每月回饋上限 ($)",
+        min_value=0.0,
+        value=_reward_defaults['conv_cap'],
+        step=50.0,
+        help="每月回饋金額上限，例如 200"
+    )
+    general_rate_pct = st.number_input(
+        "一般消費回饋率 (%)",
+        min_value=0.0, max_value=100.0,
+        value=_reward_defaults['general_rate'],
+        step=0.5,
+        help="例如 1 = 1%"
+    )
+
+    if st.button("💾 儲存回饋設定", use_container_width=True):
+        _rc = {'conv_rate': conv_rate_pct, 'general_rate': general_rate_pct, 'conv_cap': conv_cap}
+        if not IS_CLOUD:
+            with open(REWARD_CONFIG_PATH, 'w', encoding='utf-8') as f:
+                json.dump(_rc, f, ensure_ascii=False, indent=2)
+        st.success("✅ 回饋設定已儲存")
+
+    # 將設定存入 session_state 供全局使用
+    st.session_state['reward_config'] = {
+        'conv_rate': conv_rate_pct / 100.0,
+        'general_rate': general_rate_pct / 100.0,
+        'conv_cap': conv_cap,
+    }
+
     # ── 資料管理 ──
     st.divider()
     if st.button("🗑️ 清除所有資料", use_container_width=True):
@@ -675,6 +725,7 @@ with tab1:
             st.warning("請先在左側欄設定寄件者 Gmail 和應用程式密碼")
         else:
             _cat_summary = get_category_summary(all_year_df, selected_year)
+            _rc_send = st.session_state.get('reward_config', None)
 
             send_col1, send_col2, send_col3 = st.columns(3)
 
@@ -697,7 +748,8 @@ with tab1:
                             sender, _email_pwd,
                             alan_email, 'Alan',
                             selected_year, selected_month,
-                            alan_df, summary, _cat_summary
+                            alan_df, summary, _cat_summary,
+                            reward_config=_rc_send
                         )
                         if result.startswith('✅'):
                             st.success(result)
@@ -723,7 +775,8 @@ with tab1:
                             sender, _email_pwd,
                             lydia_email, 'Lydia',
                             selected_year, selected_month,
-                            lydia_df, summary, _cat_summary
+                            lydia_df, summary, _cat_summary,
+                            reward_config=_rc_send
                         )
                         if result.startswith('✅'):
                             st.success(result)
@@ -751,7 +804,8 @@ with tab1:
                             result = send_report_email(
                                 sender, _email_pwd, email_addr, name,
                                 selected_year, selected_month,
-                                owner_data, summary, _cat_summary
+                                owner_data, summary, _cat_summary,
+                                reward_config=_rc_send
                             )
                             if result.startswith('✅'):
                                 st.success(result)
@@ -859,20 +913,34 @@ with tab3:
 
     if not all_year_df.empty:
         # 回饋規則說明
+        _rc = st.session_state.get('reward_config', {})
+        _conv_pct = _rc.get('conv_rate', 0.10) * 100
+        _gen_pct = _rc.get('general_rate', 0.01) * 100
+        _cap = _rc.get('conv_cap', 200)
         with st.expander("📖 回饋規則", expanded=False):
             st.markdown(f"""
             | 消費類別 | 回饋率 | 說明 |
             |---------|--------|------|
-            | 四大超商 | **{REWARD_RATES['四大超商']*100:.0f}%** | 每月上限 ${CONVENIENCE_REWARD_CAP:,.0f} |
-            | 一般消費 | **{REWARD_RATES['一般']*100:.0f}%** | 無上限 |
+            | 四大超商 | **{_conv_pct:.1f}%** | 每月上限 ${_cap:,.0f} |
+            | 一般消費 | **{_gen_pct:.1f}%** | 無上限 |
             """)
+            st.caption("💡 可在左側欄「回饋費率設定」調整")
+
+        # 取得當前回饋費率設定
+        _reward_rates = {
+            '四大超商': _rc.get('conv_rate', 0.10),
+            '一般': _rc.get('general_rate', 0.01),
+        }
+        _reward_cap = _rc.get('conv_cap', 200)
 
         # 計算每月回饋
         rewards_by_month = {}
         for month in sorted(all_year_df['結算月份'].dropna().unique()):
             month_data = all_year_df[all_year_df['結算月份'] == month]
             cat_totals = month_data.groupby('消費類別')['清算消費金額'].sum().to_dict()
-            rewards_by_month[int(month)] = calculate_rewards(cat_totals)
+            rewards_by_month[int(month)] = calculate_rewards(
+                cat_totals, reward_rates=_reward_rates, convenience_cap=_reward_cap
+            )
 
         # 回饋摘要表格（對應 Excel Row 7-11）
         st.subheader("📊 月度回饋明細")

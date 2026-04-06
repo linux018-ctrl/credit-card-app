@@ -164,24 +164,31 @@ def classify_transaction(description: str, txn_date, billing_day: int = 27,
     }
 
 
-def calculate_rewards(monthly_data: dict) -> dict:
+def calculate_rewards(monthly_data: dict,
+                      reward_rates: dict | None = None,
+                      convenience_cap: float | None = None) -> dict:
     """
     計算月度回饋金額
 
     Args:
         monthly_data: dict with keys '四大超商' and '一般', values are total amounts
+        reward_rates: 可選，自訂回饋費率 {'四大超商': 0.10, '一般': 0.01}
+        convenience_cap: 可選，四大超商每月回饋上限
 
     Returns:
         dict with reward amounts per category and total
     """
+    rates = reward_rates or REWARD_RATES
+    cap = convenience_cap if convenience_cap is not None else CONVENIENCE_REWARD_CAP
+
     conv_amount = monthly_data.get('四大超商', 0)
     general_amount = monthly_data.get('一般', 0)
 
     conv_reward = min(
-        conv_amount * REWARD_RATES['四大超商'],
-        CONVENIENCE_REWARD_CAP
+        conv_amount * rates.get('四大超商', 0.10),
+        cap
     )
-    general_reward = general_amount * REWARD_RATES['一般']
+    general_reward = general_amount * rates.get('一般', 0.01)
 
     return {
         '四大超商_消費': conv_amount,

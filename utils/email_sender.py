@@ -24,6 +24,7 @@ def send_report_email(
     owner_df: pd.DataFrame,
     summary_df: pd.DataFrame,
     category_df: pd.DataFrame,
+    reward_config: dict | None = None,
 ) -> str:
     """
     寄送消費分析報告給指定 owner。
@@ -46,7 +47,8 @@ def send_report_email(
     subject = f"💳 {period} 信用卡消費分析 — {owner_name}"
 
     html_body = _build_html_report(
-        owner_name, year, month, owner_df, summary_df, category_df
+        owner_name, year, month, owner_df, summary_df, category_df,
+        reward_config=reward_config
     )
 
     msg = MIMEMultipart('alternative')
@@ -100,6 +102,7 @@ def _build_html_report(
     owner_df: pd.DataFrame,
     summary_df: pd.DataFrame,
     category_df: pd.DataFrame,
+    reward_config: dict | None = None,
 ) -> str:
     """產生 HTML 格式的消費分析報告"""
 
@@ -126,8 +129,11 @@ def _build_html_report(
         convenience_total = owner_df[owner_df['消費類別'] == '四大超商']['清算消費金額'].sum()
         general_total = owner_df[owner_df['消費類別'] == '一般']['清算消費金額'].sum()
 
-    convenience_reward = min(convenience_total * 0.10, 200)
-    general_reward = general_total * 0.01
+    _conv_rate = reward_config.get('conv_rate', 0.10) if reward_config else 0.10
+    _general_rate = reward_config.get('general_rate', 0.01) if reward_config else 0.01
+    _conv_cap = reward_config.get('conv_cap', 200) if reward_config else 200
+    convenience_reward = min(convenience_total * _conv_rate, _conv_cap)
+    general_reward = general_total * _general_rate
     total_reward = convenience_reward + general_reward
 
     # 交易明細表
