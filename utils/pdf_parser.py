@@ -80,6 +80,17 @@ def parse_taishin_pdf(pdf_bytes: bytes, billing_day: int = 27,
     df['清算消費金額'] = pd.to_numeric(df['清算消費金額'], errors='coerce')
     df = df.dropna(subset=['清算消費金額'])
     df = df[df['清算消費金額'] > 0]  # 排除退款/扣繳
+
+    # ── 去重：同一 (消費日期, 入帳起息日, 金額) 只保留描述最短的 ──
+    # 台新帳單的回饋明細區段會重複列出交易並附加回饋文字，導致重複
+    if not df.empty and '消費明細' in df.columns:
+        df['_desc_len'] = df['消費明細'].str.len()
+        df = df.sort_values('_desc_len', ascending=True)
+        df = df.drop_duplicates(
+            subset=['消費日期', '入帳起息日', '清算消費金額'], keep='first'
+        )
+        df = df.drop(columns=['_desc_len'])
+
     df = df.sort_values('消費日期', ascending=False).reset_index(drop=True)
     return df
 
@@ -114,6 +125,8 @@ def _should_skip(description: str) -> bool:
         '自動轉帳扣繳', '卡號末四碼', 'Rewards', '御璽卡',
         '商務御璽', '消費明細', '新臺幣金額', '外幣折算',
         '消費地', '幣別', '外幣金額', '消費日', '入帳起息日',
+        '卡友權益', '亞洲萬里通', '里數', '回饋', '優惠',
+        '紅利', '積點', '現金回饋',
     ]
     return any(kw in description for kw in skip_keywords)
 
