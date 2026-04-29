@@ -231,8 +231,8 @@ def _assemble_transactions(all_rows: list) -> list:
     """
     從分類後的行組裝交易。
     
-    用 Y 座標距離判斷：日期行上下 _Y_PROXIMITY (8pt) 以內的
-    非日期行屬於同一筆交易的多行描述，超過則屬於不同交易。
+    改進策略：每個非日期行只分配給「最近的」日期行，
+    避免相鄰交易的多行描述互相污染。
     """
     transactions = []
 
@@ -249,6 +249,40 @@ def _assemble_transactions(all_rows: list) -> list:
         if row['has_date1'] and row['has_date2']:
             date_indices.append(i)
 
+    # ── 將每個非日期行分配給最近的日期行 ──
+    # key=date_idx, value={'upper': [...], 'lower': [...]}
+    assigned = {idx: {'upper': [], 'lower': []} for idx in date_indices}
+
+    for i, row in enumerate(classified):
+        if row['has_date1'] and row['has_date2']:
+            continue  # 跳過日期行本身
+        if not row['desc_parts']:
+            continue  # 沒有描述文字的行不處理
+
+        candidate = ' '.join(row['desc_parts'])
+        if _should_skip(candidate):
+            continue
+
+        row_y = row['y']
+
+        # 找最近的日期行
+        best_date_idx = None
+        best_dist = float('inf')
+        for d_idx in date_indices:
+            dist = abs(row_y - classified[d_idx]['y'])
+            if dist < best_dist:
+                best_dist = dist
+                best_date_idx = d_idx
+
+        if best_date_idx is None or best_dist > _Y_PROXIMITY:
+            continue  # 離任何日期行都太遠
+
+        # 分配為 upper 或 lower
+        if row_y < classified[best_date_idx]['y']:
+            assigned[best_date_idx]['upper'].append((row_y, candidate))
+        else:
+            assigned[best_date_idx]['lower'].append((row_y, candidate))
+
     for idx in date_indices:
         row = classified[idx]
         txn_date = _parse_roc_date_str(row['date1'])
@@ -256,38 +290,11 @@ def _assemble_transactions(all_rows: list) -> list:
         if not txn_date or not posting_date:
             continue
 
-        date_y = row['y']
         desc_parts = list(row['desc_parts'])
 
-        # ── 向上收集：Y 距離 ≤ _Y_PROXIMITY 的描述行 ──
-        upper_parts = []
-        j = idx - 1
-        while j >= 0:
-            prev = classified[j]
-            if prev['has_date1'] and prev['has_date2']:
-                break
-            if date_y - prev['y'] > _Y_PROXIMITY:
-                break  # 距離太遠，屬於不同交易
-            if prev['desc_parts']:
-                candidate = ' '.join(prev['desc_parts'])
-                if _should_skip(candidate):
-                    break
-                upper_parts.append(candidate)
-            j -= 1
-        upper_parts.reverse()
-
-        # ── 向下收集：Y 距離 ≤ _Y_PROXIMITY 的描述行 ──
-        lower_parts = []
-        k = idx + 1
-        while k < len(classified):
-            nxt = classified[k]
-            if nxt['has_date1'] and nxt['has_date2']:
-                break
-            if nxt['y'] - date_y > _Y_PROXIMITY:
-                break  # 距離太遠，屬於不同交易
-            if nxt['desc_parts']:
-                lower_parts.append(' '.join(nxt['desc_parts']))
-            k += 1
+        # 按 Y 座標排序
+        upper_parts = [text for _, text in sorted(assigned[idx]['upper'], key=lambda x: x[0])]
+        lower_parts = [text for _, text in sorted(assigned[idx]['lower'], key=lambda x: x[0])]
 
         # 組合描述
         all_desc = upper_parts + desc_parts + lower_parts
