@@ -94,15 +94,16 @@ def parse_taishin_pdf(pdf_bytes: bytes, billing_day: int = 27,
 
     df = df[df['清算消費金額'] > 0]  # 排除剩餘的退款/扣繳
 
-    # ── 去重：同一 (消費日期, 入帳起息日, 金額) 只保留描述最短的 ──
-    # 台新帳單的回饋明細區段會重複列出交易並附加回饋文字，導致重複
+    # ── 去重：回饋明細區段會重複列出交易並附加額外文字 ──
+    # 用描述前10字+日期+金額做去重key，區分同日同金額但不同商店的交易
     if not df.empty and '消費明細' in df.columns:
+        df['_desc_key'] = df['消費明細'].str[:10]
         df['_desc_len'] = df['消費明細'].str.len()
         df = df.sort_values('_desc_len', ascending=True)
         df = df.drop_duplicates(
-            subset=['消費日期', '入帳起息日', '清算消費金額'], keep='first'
+            subset=['消費日期', '入帳起息日', '清算消費金額', '_desc_key'], keep='first'
         )
-        df = df.drop(columns=['_desc_len'])
+        df = df.drop(columns=['_desc_key', '_desc_len'])
 
     df = df.sort_values('消費日期', ascending=False).reset_index(drop=True)
     return df
