@@ -79,7 +79,20 @@ def parse_taishin_pdf(pdf_bytes: bytes, billing_day: int = 27,
     df = pd.DataFrame(transactions)
     df['清算消費金額'] = pd.to_numeric(df['清算消費金額'], errors='coerce')
     df = df.dropna(subset=['清算消費金額'])
-    df = df[df['清算消費金額'] > 0]  # 排除退款/扣繳
+
+    # ── 正負互抵：同日期同金額的正負配對全部移除（如年費 + 年費減免）──
+    if not df.empty:
+        df['_abs_amt'] = df['清算消費金額'].abs()
+        cancel_mask = pd.Series(False, index=df.index)
+        for key, grp in df.groupby(['消費日期', '入帳起息日', '_abs_amt']):
+            pos = grp[grp['清算消費金額'] > 0]
+            neg = grp[grp['清算消費金額'] < 0]
+            if not pos.empty and not neg.empty:
+                # 有正有負 → 互抵，全部標記移除
+                cancel_mask.loc[grp.index] = True
+        df = df[~cancel_mask].drop(columns=['_abs_amt'])
+
+    df = df[df['清算消費金額'] > 0]  # 排除剩餘的退款/扣繳
 
     # ── 去重：同一 (消費日期, 入帳起息日, 金額) 只保留描述最短的 ──
     # 台新帳單的回饋明細區段會重複列出交易並附加回饋文字，導致重複
@@ -326,9 +339,7 @@ def _assemble_transactions(all_rows: list) -> list:
         if amount_val is None:
             continue
 
-        # 排除負數金額（退款、自動扣繳等）
-        if amount_val <= 0:
-            continue
+        # 負數金額也保留，交給外層做正負互抵判斷後再過濾
 
         transactions.append({
             '消費日期': txn_date,
